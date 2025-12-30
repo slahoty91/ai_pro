@@ -1,51 +1,38 @@
-# Build stage
-FROM golang:1.24-alpine AS builder
-
-# Install build dependencies for CGO (Tesseract OCR)
-RUN apk add --no-cache \
-    gcc \
-    g++ \
-    make \
-    tesseract-ocr \
-    tesseract-ocr-dev \
-    leptonica \
-    leptonica-dev \
-    poppler-utils \
-    pkgconfig \
-    git
+# ---------- Build stage ----------
+FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS builder
 
 WORKDIR /app
 
-# Copy go mod files
+# Install CGO + OCR dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    pkg-config \
+    tesseract-ocr \
+    libtesseract-dev \
+    libleptonica-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
 COPY . .
 
-# Build the application with CGO enabled
 ENV CGO_ENABLED=1
 RUN go build -o ai_pro main.go
 
-# Runtime stage
-FROM alpine:latest
 
-# Install runtime dependencies
-RUN apk add --no-cache \
-    tesseract-ocr \
-    tesseract-ocr-data-eng \
-    leptonica \
-    poppler-utils \
-    ca-certificates
+# ---------- Runtime stage ----------
+FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# Copy the binary from builder
+# Copy binary
 COPY --from=builder /app/ai_pro .
 
-# Expose port
+# Copy runtime OCR + certs (NO apt here)
+COPY --from=builder /usr/share/tesseract-ocr /usr/share/tesseract-ocr
+COPY --from=builder /usr/lib /usr/lib
+COPY --from=builder /etc/ssl/certs /etc/ssl/certs
+
 EXPOSE 8080
-
-# Run the application
 CMD ["./ai_pro"]
-
