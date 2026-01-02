@@ -39,7 +39,7 @@ services:
 
   app:
     # Replace 'your-username' with your Docker Hub username
-    image: ${DOCKER_IMAGE:-your-username/ai-pro:latest}
+    image: ${DOCKER_IMAGE:-slahoty/ai-pro:latest}
     container_name: ai_pro_app
     ports:
       - "8080:8080"
